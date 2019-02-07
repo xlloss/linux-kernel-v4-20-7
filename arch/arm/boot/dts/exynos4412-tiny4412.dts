@@ -143,3 +143,14 @@
 		status = "okay";
 	};
 };
+
+&i2c_0 {
+        status = "okay";
+
+        sht21@40 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "sensirion,sht21";
+			reg = <0x40>;
+        };
+};
