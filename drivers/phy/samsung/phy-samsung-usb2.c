@@ -15,6 +15,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
@@ -141,6 +142,31 @@ static const struct of_device_id samsung_usb2_phy_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, samsung_usb2_phy_of_match);
 
+static void exynos_setup_usb4606_rest(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	int err;
+	int reset_gpio;
+
+	if (!dev->of_node)
+			return;
+
+	reset_gpio = of_get_named_gpio(dev->of_node, "samsung,usb4604-rst", 0);
+	if (!gpio_is_valid(reset_gpio))
+			return;
+
+	err = devm_gpio_request_one(dev, reset_gpio, GPIOF_OUT_INIT_HIGH,
+								"usb4604-rst");
+	if (err)
+		dev_err(dev, "can't request ehci phyreset-gpio gpio %d", reset_gpio);
+
+	gpio_set_value(reset_gpio, 0);
+	mdelay(1);
+	gpio_set_value(reset_gpio, 1);
+	devm_gpio_free(dev, reset_gpio);
+}
+
+
 static int samsung_usb2_phy_probe(struct platform_device *pdev)
 {
 	const struct samsung_usb2_phy_config *cfg;
@@ -154,6 +180,8 @@ static int samsung_usb2_phy_probe(struct platform_device *pdev)
 		dev_err(dev, "This driver is required to be instantiated from device tree\n");
 		return -EINVAL;
 	}
+
+	exynos_setup_usb4606_rest(pdev);
 
 	cfg = of_device_get_match_data(dev);
 	if (!cfg)

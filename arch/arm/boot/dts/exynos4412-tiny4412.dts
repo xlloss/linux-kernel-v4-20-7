@@ -105,6 +105,7 @@
 };
 
 &exynos_usbphy {
+	samsung,usb4604-rst = <&gpm2 4 1>;
 	status = "okay";
 };
 
@@ -153,4 +154,12 @@
 			compatible = "sensirion,sht21";
 			reg = <0x40>;
         };
+};
+
+&pwm {
+	/* PWM 0 -- Buzzer */
+	pinctrl-0 = <&pwm0_out &pwm1_out &pwm2_out &pwm3_out>;
+	pinctrl-names = "default";
+	samsung,pwm-outputs = <0>, <1>, <2>, <3>;
+	status = "disabled";
 };
