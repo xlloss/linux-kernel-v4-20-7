@@ -29,6 +29,7 @@
 #include <linux/mutex.h>
 #include <linux/device.h>
 #include <linux/jiffies.h>
+#include <linux/of.h>
 
 /* I2C command bytes */
 #define SHT21_TRIG_T_MEASUREMENT_HM  0xe3
@@ -293,6 +294,14 @@ static int sht21_probe(struct i2c_client *client,
 	return PTR_ERR_OR_ZERO(hwmon_dev);
 }
 
+#ifdef CONFIG_OF
+static struct of_device_id sht21_dt_match[] = {
+       { .compatible = "sensirion,sht21" },
+       {},
+};
+MODULE_DEVICE_TABLE(of, sht21_dt_match);
+#endif
+
 /* Device ID table */
 static const struct i2c_device_id sht21_id[] = {
 	{ "sht21", 0 },
@@ -301,7 +310,12 @@ static const struct i2c_device_id sht21_id[] = {
 MODULE_DEVICE_TABLE(i2c, sht21_id);
 
 static struct i2c_driver sht21_driver = {
-	.driver.name = "sht21",
+	.driver = {
+    .name   = "sht21",
+#ifdef CONFIG_OF
+	.of_match_table = of_match_ptr(sht21_dt_match),
+#endif
+    },
 	.probe       = sht21_probe,
 	.id_table    = sht21_id,
 };
