@@ -68,6 +68,19 @@
 		};
 	};
 
+	backlight_demo@139D0000	{
+		compatible = "tiny4412,backlight_demo";
+		reg = <0x139D0000  0x14>;
+		tiny4412,backlight = <&gpx1 2 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "backlight_out","backlight_in";
+		pinctrl-0 = <&backlight_out>;
+		pinctrl-1 = <&backlight_in>;
+//		interrupts = <0 40 0>;
+		interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clock CLK_PWM>;
+		clock-names = "timers";
+	};
+
 //	display-timings {
 //		native-mode = <&timing0>;
 //		timing0: timing {
@@ -97,21 +110,20 @@
 	display-timings {
 		native-mode = <&timing0>;
 		timing0: timing {
-			clock-frequency = <15000>;
+			clock-frequency = <3000000>;
 			hactive = <800>;
 			vactive = <480>;
 			hfront-porch = <80>;
 			hback-porch = <36>;
 			hsync-len = <10>;
-			vback-porch = <15>;
-			vfront-porch = <22>;
-			vsync-len = <8>;
-			vsync-active = <0>;
-			hsync-active = <0>;
+			vback-porch = <25>;
+			vfront-porch = <12>;
+			vsync-len = <18>;
+			vsync-active = <1>;
+			hsync-active = <1>;
 			pixelclk-active = <0>;
 		};
 	};
-
 };
 
 &rtc {
@@ -201,10 +213,28 @@
         };
 };
 
-&pwm {
-	/* PWM 0 -- Buzzer */
-	pinctrl-0 = <&pwm0_out &pwm1_out &pwm2_out &pwm3_out>;
-	pinctrl-names = "default";
-	samsung,pwm-outputs = <0>, <1>, <2>, <3>;
-	status = "okay";
+&pinctrl_1 {
+	backlight_out:
+	backlight_out {
+		samsung,pins = "gpx1-2";
+		samsung,pin-function = <1>;
+		samsung,pin-pud = <0>;
+		samsung,pin-drv = <0>;
+	};
+
+	backlight_in: 
+	backlight_in {
+		samsung,pins = "gpx1-2";
+		samsung,pin-function = <0>;
+		samsung,pin-pud = <0>;
+		samsung,pin-drv = <0>;
+	};
 };
+
+//&pwm {
+//	/* PWM 0 -- Buzzer */
+//	pinctrl-0 = <&pwm0_out &pwm1_out &pwm2_out &pwm3_out>;
+//	pinctrl-names = "default";
+//	samsung,pwm-outputs = <0>, <1>, <2>, <3>;
+//	status = "okay";
+//};
