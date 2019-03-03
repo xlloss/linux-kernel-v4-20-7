@@ -67,6 +67,51 @@
 			clock-frequency = <24000000>;
 		};
 	};
+
+//	display-timings {
+//		native-mode = <&timing0>;
+//		timing0: timing {
+//			clock-frequency = <63000000>;
+//			hactive = <800>;
+//			vactive = <480>;
+//			hfront-porch = <80>;
+//			hback-porch = <36>;
+//			hsync-len = <10>;
+//			vback-porch = <15>;
+//			vfront-porch = <22>;
+//			vsync-len = <8>;
+//		};
+//	};
+
+};
+
+&fimd {
+//	pinctrl-0 = <&lcd_clk &lcd_data24 &pwm1_out>;
+	pinctrl-0 = <&lcd_clk &lcd_data24>;
+	pinctrl-names = "default";
+	status = "okay";
+
+//	samsung,invert-vden;
+	samsung,invert-vclk;
+
+	display-timings {
+		native-mode = <&timing0>;
+		timing0: timing {
+			clock-frequency = <15000>;
+			hactive = <800>;
+			vactive = <480>;
+			hfront-porch = <80>;
+			hback-porch = <36>;
+			hsync-len = <10>;
+			vback-porch = <15>;
+			vfront-porch = <22>;
+			vsync-len = <8>;
+			vsync-active = <0>;
+			hsync-active = <0>;
+			pixelclk-active = <0>;
+		};
+	};
+
 };
 
 &rtc {
