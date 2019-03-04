@@ -400,6 +400,9 @@ static int fimd_atomic_check(struct exynos_drm_crtc *crtc,
 		ideal_clk *= 2;
 	}
 
+	clk_set_rate(ctx->lcd_clk, 150000000);
+	DRM_INFO("sclk_fimd clock(%lu)\n", clk_get_rate(ctx->lcd_clk));
+			 
 	lcd_rate = clk_get_rate(ctx->lcd_clk);
 	if (2 * lcd_rate < ideal_clk) {
 		DRM_INFO("sclk_fimd clock too low(%lu) for requested pixel clock(%lu)\n",
