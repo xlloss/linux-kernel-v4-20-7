@@ -90,7 +90,6 @@ static int has_ts_data = 1;
 static int exitting;
 
 void __iomem *timer_base;
-static struct TIMER_BASE *timer = NULL;
 static volatile unsigned int io_bit_count;
 static volatile unsigned int io_data;
 static volatile unsigned char one_wire_request;
@@ -98,7 +97,6 @@ static volatile unsigned char one_wire_request;
 // once a session complete
 static unsigned total_received, total_error;
 static unsigned last_req, last_res;
-
 
 enum
 {
@@ -110,8 +108,7 @@ enum
 	STOPING,
 } one_wire_status = IDLE;
 
-// CRC
-//
+/* CRC TABLE */
 static const unsigned char crc8_tab[] = {
 	0x00, 0x07, 0x0E, 0x09, 0x1C, 0x1B, 0x12, 0x15,
 	0x38, 0x3F, 0x36, 0x31, 0x24, 0x23, 0x2A, 0x2D,
@@ -150,56 +147,54 @@ static const unsigned char crc8_tab[] = {
 #define crc8_init(crc) ((crc) = 0XACU)
 #define crc8(crc, v) ( (crc) = crc8_tab[(crc) ^(v)])
 #define SAMPLE_BPS 9600
-
-//static inline void stop_timer_for_1wire(void)
-//{
-//	unsigned long tcon;
-//	tcon = timer->TCON;
-//	tcon &= ~(1 << 16);
-//	timer->TCON = tcon;
-//}
+#define S3C2410_TCON_T3START (1<<16)
+#define S3C2410_TCON_T3MANUALUPD (1<<17)
+#define S3C2410_TCON_T3START (1<<16)
+#define S3C2410_TCON_T3RELOAD (1<<19)
+#define S3C2410_TCFG1_MUX3_MASK (15<<12)
+static int err_i = 0;
 
 // one-wire protocol core
 unsigned long TCNT_FOR_SAMPLE_BIT;
 unsigned long TCNT_FOR_FAST_LOOP;
 unsigned long TCNT_FOR_SLOW_LOOP;
-
+static DECLARE_WAIT_QUEUE_HEAD(bl_waitq);
+static int bl_ready;
+static unsigned char backlight_req = 0;
+static unsigned char backlight_init_success;
+static struct device *dev;
+static struct clk *base_clk;
+static struct resource *res = NULL, *irq = NULL;
 
 
 static inline void set_pin_as_input(void)
 {
-	//gpio_direction_input(GPIO_1WIRE);
 	gpio_direction_input(one_write_pin);
 }
 
 static inline void set_pin_as_output(void)
 {
-	//gpio_direction_output(GPIO_1WIRE, 1);
 	gpio_direction_output(one_write_pin, 1);
-	//pinctrl_select_state(pctrl, pstate_in);
 }
 
 static inline void set_pin_value(int v)
 {
-	if (v) {
-		//gpio_set_value(GPIO_1WIRE, 1);
+	if (v)
 		gpio_set_value(one_write_pin, 1);
-	} else {
-		//gpio_set_value(GPIO_1WIRE, 0);
+	else
 		gpio_set_value(one_write_pin, 0);
-	}
 }
 
 static inline int get_pin_value(void)
 {
-	//return gpio_get_value(GPIO_1WIRE);
 	return gpio_get_value(one_write_pin);
 }
 
-#define S3C2410_TCON_T3START	  (1<<16)
+
 static inline void stop_timer_for_1wire(void)
 {
 	unsigned long tcon;
+
 	tcon = readl(timer_base + TCON);
 	tcon &= ~S3C2410_TCON_T3START;
 	writel(tcon, timer_base + TCON);
@@ -208,17 +203,12 @@ static inline void stop_timer_for_1wire(void)
 static inline void start_timer_for_1wire(void)
 {
 	unsigned int tint;
+
 	tint = readl(timer_base + TINT_CSTAT);
 	tint |= 0x108;
 	writel(tint, timer_base + TINT_CSTAT);
 
 }
-
-static DECLARE_WAIT_QUEUE_HEAD(bl_waitq);
-//static DECLARE_WAIT_QUEUE_HEAD(ts_waitq);
-static int bl_ready;
-static unsigned char backlight_req = 0;
-static unsigned char backlight_init_success;
 
 static inline void notify_bl_data(unsigned char a, unsigned char b, unsigned char c)
 {
@@ -236,18 +226,6 @@ static inline void notify_info_data(unsigned char _lcd_type,
 	}
 }
 
-static inline void notify_ts_data(unsigned x, unsigned y, unsigned down)
-{
-//	if (!down && !(ts_status &(1U << 31))) {
-//		// up repeat, give it up
-//		return;
-//	}
-//
-//	ts_status = ((x << 16) | (y)) | (down << 31);
-//	ts_ready = 1;
-//	wake_up_interruptible(&ts_waitq);
-}
-
 static void one_wire_session_complete(unsigned char req, unsigned int res)
 {
 	unsigned char crc;
@@ -262,23 +240,14 @@ static void one_wire_session_complete(unsigned char req, unsigned int res)
 	crc8(crc, p[1]);
 
 	if (crc != p[0]) {
-		// CRC dismatch
-		if (total_received > 100) {
+		/* CRC dismatch */
+		if (total_received > 100)
 			total_error++;
-		}
 		return;
 	}
 
 	switch(req) {
 		case REQ_TS:
-			{
-				//unsigned short x,y;
-				//unsigned pressed;
-				//x =  ((p[3] >>   4U) << 8U) + p[2];
-				//y =  ((p[3] &  0xFU) << 8U) + p[1];
-				//pressed = (x != 0xFFFU) && (y != 0xFFFU); 
-				//notify_ts_data(x, y, pressed);
-			}
 			break;
 
 		case REQ_INFO:
@@ -290,73 +259,17 @@ static void one_wire_session_complete(unsigned char req, unsigned int res)
 	}
 }
 
-//static irqreturn_t timer_for_1wire_interrupt(int irq, void *dev_id)
-//{
-//	unsigned int tint;
-//	tint = timer->TINT_CSTAT;
-//	tint |= 0x100;
-//	timer->TINT_CSTAT = tint;
-//	//printk("timer_for_1wire_interrupt\n");
-//	io_bit_count--;
-//	switch (one_wire_status) {
-//		case START:
-//			if (io_bit_count == 0) {
-//				io_bit_count = 16;
-//				one_wire_status = REQUEST;
-//			}
-//			break;
-//		case REQUEST:
-//			gpio_set_value(one_write_pin, io_data & (1U << 31));
-//			io_data <<= 1;
-//			if (io_bit_count == 0) {
-//				io_bit_count = 2;
-//				one_wire_status = WAITING;
-//				}
-//			break;
-//		case WAITING:
-//			if (io_bit_count == 0) {
-//				io_bit_count = 32;
-//				one_wire_status = RESPONSE;
-//			}
-//			if (io_bit_count == 1) {
-//				pinctrl_select_state(pctrl, pstate_in);
-//				gpio_set_value(one_write_pin, 1);
-//			}
-//			break;
-//		case RESPONSE:
-//			io_data = (io_data << 1) | gpio_get_value(one_write_pin);
-//			if (io_bit_count == 0) {
-//				io_bit_count = 2;
-//				one_wire_status = STOPING;
-//				gpio_set_value(one_write_pin, 1);
-//				pinctrl_select_state(pctrl, pstate_out);
-//				//one_wire_session_complete(one_wire_request, io_data);
-//			}
-//			break;
-//		case STOPING:
-//			if (io_bit_count == 0) {
-//				one_wire_status = IDLE;
-//				stop_timer_for_1wire();
-//			}
-//		break;
-//		default:
-//			stop_timer_for_1wire();
-//	}
-//	return IRQ_HANDLED;
-//}
-
-//unsigned int io_bit_count;
-
 static irqreturn_t timer_for_1wire_interrupt(int irq, void *dev_id)
 {
 	unsigned int tint;
 
+	/* clear int status */
 	tint = readl(timer_base + TINT_CSTAT);
 	tint |= 0x100;
 	writel(tint, timer_base + TINT_CSTAT);
 
-
 	io_bit_count--;
+
 	switch(one_wire_status) {
 	case START:
 		if (io_bit_count == 0) {
@@ -366,8 +279,8 @@ static irqreturn_t timer_for_1wire_interrupt(int irq, void *dev_id)
 		break;
 
 	case REQUEST:
-		// Send a bit
-		set_pin_value(io_data & (1U << 31));
+		/* Send a bit */
+		set_pin_value(io_data & (1 << 31));
 		io_data <<= 1;
 		if (io_bit_count == 0) {
 			io_bit_count = 2;
@@ -387,7 +300,7 @@ static irqreturn_t timer_for_1wire_interrupt(int irq, void *dev_id)
 		break;
 		
 	case RESPONSE:
-		// Get a bit
+		/* Get a bit */
 		io_data = (io_data << 1) | get_pin_value();
 		if (io_bit_count == 0) {
 			io_bit_count = 2;
@@ -399,82 +312,35 @@ static irqreturn_t timer_for_1wire_interrupt(int irq, void *dev_id)
 		break;
 
 	case STOPING:
-		//pr_err("=====================>%s %d\r\n", __func__, __LINE__);
 		if (io_bit_count == 0) {
-			//pr_err("=====================>%s %d\r\n", __func__, __LINE__);
 			one_wire_status = IDLE;
 			stop_timer_for_1wire();
 		}
 		break;
 		
 	default:
-		//pr_err("=====================>%s %d\r\n", __func__, __LINE__);
 		stop_timer_for_1wire();
+
 	}
+
 	return IRQ_HANDLED;
 }
-
-
-
-//static void start_one_wire_session(unsigned char req)
-//{
-////	unsigned int tcon;
-////	printk("backlight_write\n");
-////	one_wire_status = START;
-////	gpio_set_value(one_write_pin, 1);
-////	pinctrl_select_state(pctrl, pstate_out);
-////	// IDLE to START
-////	{
-////		unsigned char crc;
-////		crc8_init(crc);
-////		crc8(crc, req);
-////		io_data = (req << 8) + crc;
-////		io_data <<= 16;
-////	}
-////	io_bit_count = 1;
-////	pinctrl_select_state(pctrl, pstate_out);
-////	timer->TCNTB3 = 650;
-////	//init tranfer and start timer
-////	tcon = timer->TCON;
-////	tcon &= ~(0xF << 16);
-////	tcon |= (1 << 17);
-////	timer->TCON = tcon;
-////	tcon |= (1 << 16);
-////	tcon |= (1 << 19);
-////	tcon &= ~(1 << 17);
-////	timer->TCON = tcon;
-////	timer->TINT_CSTAT |= 0x08;
-////	gpio_set_value(one_write_pin, 0);
-//}
-//
-
-#define S3C2410_TCON_T3MANUALUPD  (1<<17)
-#define S3C2410_TCON_T3START	  (1<<16)
-#define S3C2410_TCON_T3RELOAD	  (1<<19)
-
-static int err_i = 0;
 
 static void start_one_wire_session(unsigned char req)
 {
 	unsigned long tcon;
-	unsigned long flags;
 
 	if (one_wire_status != IDLE) {
-		//printk("one_wire_status: %d\n", one_wire_status);
-		if (++err_i < 3) {
-			//printk("===========>one_wire_status fail\r\n");
-			//printk("%d: TCNTB=%08x, TCNTO=%08x, TINT_CSTAT=%08x\n", one_wire_status,
-			//		__raw_readl(S3C2410_TCNTB(3)), __raw_readl(S3C2410_TCNTO(3)),
-			//		__raw_readl(S3C64XX_TINT_CSTAT));
-		}
-		return;
+		if (++err_i < 3)
+			return;
 	}
 
 	one_wire_status = START;
 
 	set_pin_value(1);
 	set_pin_as_output();
-	// IDLE to START
+
+	/* IDLE to START */
 	{
 		unsigned char crc;
 		crc8_init(crc);
@@ -482,44 +348,39 @@ static void start_one_wire_session(unsigned char req)
 		io_data = (req << 8) + crc;
 		io_data <<= 16;
 	}
+
 	last_req = (io_data >> 16);
 	one_wire_request = req;
 	io_bit_count = 1;
 	set_pin_as_output();
 
-	//writel(TCNT_FOR_SAMPLE_BIT, S3C2410_TCNTB(3));
 	writel(TCNT_FOR_SAMPLE_BIT, timer_base + TCNTB3);
-	// init tranfer and start timer
-	//tcon = __raw_readl(S3C2410_TCON);
+	/* init tranfer and start timer */
 	tcon = readl(timer_base + TCON);
 	tcon &= ~(0xF << 16);
 	tcon |= S3C2410_TCON_T3MANUALUPD;
-	//writel(tcon, S3C2410_TCON);
 	writel(tcon, timer_base + TCON);
 
 	tcon |= S3C2410_TCON_T3START;
 	tcon |= S3C2410_TCON_T3RELOAD;
 	tcon &= ~S3C2410_TCON_T3MANUALUPD;
 
-//	local_irq_save(flags);
-//	writel(tcon, S3C2410_TCON);
 	writel(tcon, timer_base + TCON);
 	set_pin_value(0);
-//	local_irq_restore(flags);
 }
 
 
 static ssize_t backlight_write(struct file *file, const char __user *buf, size_t count, loff_t *off)
 {
 	unsigned char reg, ret;
+
 	ret = copy_from_user(&reg, buf, 1);
-	if (ret < 0) {
-		printk("%s copy_from_user error\n", __func__);
-	}
-	pr_err("%s reg %d\r\n", __func__, reg);
-	if (reg > 127) {
+	if (ret < 0)
+		pr_err("%s copy_from_user error\n", __func__);
+
+	if (reg > 127)
 		reg = 127;
-	}
+
 	reg = 10;
 	start_one_wire_session(reg + 0x80);
 	return 1;
@@ -545,7 +406,7 @@ static struct file_operations backlight_fops = {
 	.write = backlight_write,
 };
 
-#define S3C2410_TCFG1_MUX3_MASK   (15<<12)
+
 static int init_timer_for_1wire(unsigned long pclk)
 {
 	unsigned long tcfg1;
@@ -554,67 +415,48 @@ static int init_timer_for_1wire(unsigned long pclk)
 
 	printk("PWM clock = %ld\n", pclk);
 
-	// get prescaler
+	/* get prescaler */
 	tcfg0 = readl(timer_base + TCFG0);
 
 
-	// we use system prescaler value because timer 4 uses same one
+	/* we use system prescaler value because timer 4 uses same one */
 	prescale1_value = (tcfg0 >> 8) & 0xFF;
 
-	// calc the TCNT_FOR_SAMPLE_BIT, that is one of the goal
+	/* calc the TCNT_FOR_SAMPLE_BIT, that is one of the goal */
 	TCNT_FOR_SAMPLE_BIT = pclk / (prescale1_value + 1) / SAMPLE_BPS - 1;
 	TCNT_FOR_FAST_LOOP  = pclk / (prescale1_value + 1) / FAST_LOOP_FEQ - 1;
 	TCNT_FOR_SLOW_LOOP  = pclk / (prescale1_value + 1) / SLOW_LOOP_FEQ - 1;
 
-	// select timer 3, the 2rd goal
-//	tcfg1 = readl(S3C2410_TCFG1);
-//	tcfg1 &= ~S3C2410_TCFG1_MUX3_MASK;
-//	writel(tcfg1, S3C2410_TCFG1);
+	/* select timer 3, the 2rd goal */
 	tcfg1 = readl(timer_base + TCFG1);
 	tcfg1 &= ~S3C2410_TCFG1_MUX3_MASK;
 	writel(tcfg1, timer_base + TCFG1);
 
-	printk("TCNT_FOR_SAMPLE_BIT = %ld, TCFG1 = %08x\n",
+	pr_info("TCNT_FOR_SAMPLE_BIT = %ld, TCFG1 = %08x\n",
 			TCNT_FOR_SAMPLE_BIT, readl(timer_base + TCFG1));
+
 	return 0;
 }
-
-static struct device *dev;
-static struct clk *base_clk;
-static struct resource *res = NULL, *irq = NULL;
-
 
 void one_wire_timer_proc(struct timer_list *unused)
 {
 	unsigned char req;
 
-	//pr_err("%s %d\r\n", __func__, __LINE__);
-
-	if (exitting) {
+	if (exitting)
 		return;
-	}
 
-	//pr_err("%s %d\r\n", __func__, __LINE__);
-
-//	one_wire_timer.expires = jiffies + timer_interval;
 	add_timer(&one_wire_timer);
 
 	if (lcd_type == 0) {
-		//pr_err("==========>%s req : %d\r\n", __func__, __LINE__);
 		req = REQ_INFO;
 	} else if (!backlight_init_success) {
-		//pr_err("==========>%s req : %d\r\n", __func__, __LINE__);
 		req = 127;
-		//req = 64;
 	} else if (backlight_req) {
-		//pr_err("==========>%s req : %d\r\n", __func__, __LINE__);
 		req = backlight_req;
 		backlight_req = 0;
 	} else if (has_ts_data) {
-		//pr_err("==========>%s req : %d\r\n", __func__, __LINE__);
 		req = REQ_TS;
 	} else {
-		//pr_err("==========>%s req : %d\r\n", __func__, __LINE__);
 		return;
 	}
 
@@ -627,36 +469,34 @@ static int backlight_probe(struct platform_device *pdev)
 	dev_t devid;
 	unsigned long pclk;
 
-
 	dev = &pdev->dev;
 	printk("enter %s v2.0\n", __func__);
 
 	pctrl = devm_pinctrl_get(dev);
 	if (pctrl == NULL) {
-		printk("devm_pinctrl_get error\n");
+		dev_err(&pdev->dev, "devm_pinctrl_get error\n");
 		return -EINVAL;
 	}
 	pstate_in = pinctrl_lookup_state(pctrl, "backlight_in");
 	pstate_out = pinctrl_lookup_state(pctrl, "backlight_out");
 	if (pstate_in == NULL || pstate_out == NULL) {
-		printk("pinctrl_lookup_state error\n");
+		dev_err(&pdev->dev, "pinctrl_lookup_state error\n");
 		return -EINVAL;
 	}
 
 	one_write_pin = of_get_named_gpio(dev->of_node, "tiny4412,backlight", 0);
 	if (!one_write_pin) {
-		printk("of_get_named_gpio error\n");
+		dev_err(dev, "of_get_named_gpio error\n");
 		return -EINVAL;
 	}
 
 	devm_gpio_request_one(dev, one_write_pin, GPIOF_OUT_INIT_HIGH, "one_write");
-	//pinctrl_select_state(pctrl, pstate);
 
 	gpio_set_value(one_write_pin, 1);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
-        printk("platform_get_resource error\n");
+        dev_err(dev, "platform_get_resource error\n");
         return -EINVAL;
     }
 
@@ -672,24 +512,18 @@ static int backlight_probe(struct platform_device *pdev)
         return ret;
     }
 
-
 	pclk = clk_get_rate(base_clk);
-	printk("PWM clock = %ld\n", pclk);
+	dev_info(dev, "PWM clock = %ld\n", pclk);
 
 	timer_base = devm_ioremap_resource(&pdev->dev, res);
     if (timer_base == NULL) {
-        printk("devm_ioremap_resource error\n");
+        dev_err(dev, "devm_ioremap_resource error\n");
         return -EINVAL;
     }
 
-//	timer = (struct TIMER_BASE)timer_base;
-//    printk("timer: %x\n", (unsigned int)timer);
-//    timer->TCFG0  = 0xf00;
-//    timer->TCFG1  = 0x10004;
-
     irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
     if (irq == NULL) {
-        printk("platform_get_resource irq error\n");
+        dev_err(dev, "platform_get_resource irq error\n");
         return -EINVAL;
     }
 
@@ -704,8 +538,6 @@ static int backlight_probe(struct platform_device *pdev)
 
 	one_wire_timer.expires = jiffies + timer_interval;
 	timer_setup(&one_wire_timer, one_wire_timer_proc, 0); 
-//	add_timer(&one_wire_timer);
-
 	one_wire_timer_proc(0);
 	
 	
@@ -732,7 +564,6 @@ static int backlight_probe(struct platform_device *pdev)
 
 static int backlight_remove(struct platform_device *pdev)
 {
-    printk("enter %s\n", __func__);
     device_destroy(cls, MKDEV(major, 0));
     class_destroy(cls);
     cdev_del(&backlight_cdev);
@@ -754,23 +585,22 @@ MODULE_DEVICE_TABLE(of, backlight_dt_ids);
 
 static struct platform_driver backlight_driver =
 {
-    .driver        = {
-        .name      = "backlight_demo",
-        .of_match_table    = of_match_ptr(backlight_dt_ids),
+    .driver = {
+        .name = "backlight_demo",
+        .of_match_table = of_match_ptr(backlight_dt_ids),
     },
-	.probe         = backlight_probe,
-    .remove        = backlight_remove,
+	.probe = backlight_probe,
+    .remove = backlight_remove,
 };
 
 
 static int backlight_init(void)
 {
     int ret;
-    printk("enter %s\n", __func__);
+
 	ret = platform_driver_register(&backlight_driver);
-	if (ret) {
-        printk(KERN_ERR "backlight demo: probe faid backlight: %d\n", ret);
-    }
+	if (ret)
+        pr_err("backlight_init faid\n");
 
     return ret;
 }
@@ -778,7 +608,6 @@ static int backlight_init(void)
 
 static void backlight_exit(void)
 {
-    printk("enter %s\n", __func__);
     platform_driver_unregister(&backlight_driver);
 }
 module_init(backlight_init);
