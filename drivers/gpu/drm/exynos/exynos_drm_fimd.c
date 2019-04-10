@@ -27,7 +27,8 @@
 #include <video/of_videomode.h>
 #include <video/samsung_fimd.h>
 #include <drm/exynos_drm.h>
-
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include "exynos_drm_drv.h"
 #include "exynos_drm_fb.h"
 #include "exynos_drm_crtc.h"
@@ -95,6 +96,9 @@
 
 /* HW trigger flag on i80 panel. */
 #define I80_HW_TRG     (1 << 1)
+struct clk;
+struct clk_core;
+
 
 struct fimd_driver_data {
 	unsigned int timing_base;
@@ -232,21 +236,28 @@ static const uint32_t fimd_formats[] = {
 static int fimd_enable_vblank(struct exynos_drm_crtc *crtc)
 {
 	struct fimd_context *ctx = crtc->ctx;
-	u32 val;
+	struct drm_device *drmdev = ctx->drm_dev;
 
-	if (ctx->suspended)
+	u32 val;
+	pr_err("slash -> %s\r\n", __func__);
+	if (ctx->suspended) {
+		pr_err("slash -> %s %d\r\n", __func__, __LINE__);
 		return -EPERM;
+	}
 
 	if (!test_and_set_bit(0, &ctx->irq_flags)) {
+		pr_err("slash -> %s %d\r\n", __func__, __LINE__);
 		val = readl(ctx->regs + VIDINTCON0);
 
 		val |= VIDINTCON0_INT_ENABLE;
 
 		if (ctx->i80_if) {
+			pr_err("slash -> %s %d\r\n", __func__, __LINE__);
 			val |= VIDINTCON0_INT_I80IFDONE;
 			val |= VIDINTCON0_INT_SYSMAINCON;
 			val &= ~VIDINTCON0_INT_SYSSUBCON;
 		} else {
+			pr_err("slash -> %s %d\r\n", __func__, __LINE__);
 			val |= VIDINTCON0_INT_FRAME;
 
 			val &= ~VIDINTCON0_FRAMESEL0_MASK;
@@ -288,16 +299,17 @@ static void fimd_disable_vblank(struct exynos_drm_crtc *crtc)
 static void fimd_wait_for_vblank(struct exynos_drm_crtc *crtc)
 {
 	struct fimd_context *ctx = crtc->ctx;
-
+	pr_err("slash -> %s\r\n", __func__);
 	if (ctx->suspended)
 		return;
-
+	pr_err("slash -> %s %d\r\n", __func__, __LINE__);
 	atomic_set(&ctx->wait_vsync_event, 1);
 
 	/*
 	 * wait for FIMD to signal VSYNC interrupt or return after
 	 * timeout which is set to 50ms (refresh rate of 20).
 	 */
+	pr_err("slash -> %s %d\r\n", __func__, __LINE__);
 	if (!wait_event_timeout(ctx->wait_vsync_queue,
 				!atomic_read(&ctx->wait_vsync_event),
 				HZ/20))
@@ -391,6 +403,8 @@ static int fimd_atomic_check(struct exynos_drm_crtc *crtc,
 	}
 
 	ideal_clk = mode->clock * 1000;
+//	DRM_INFO("mode->clock clock(%lu)\n", mode->clock);
+	DRM_INFO("ideal_clk clock(%lu)\n", ideal_clk);
 
 	if (ctx->i80_if) {
 		/*
@@ -400,9 +414,14 @@ static int fimd_atomic_check(struct exynos_drm_crtc *crtc,
 		ideal_clk *= 2;
 	}
 
-	clk_set_rate(ctx->lcd_clk, 150000000);
+//	if (clk_set_rate(ctx->lcd_clk, 150000000))
+//		pr_err("1 slash %s clk_set_rate fail\r\n");
+//
+//	if (clk_set_rate(ctx->lcd_clk, 100000000))
+//		pr_err("2 slash %s clk_set_rate fail\r\n");
+
 	DRM_INFO("sclk_fimd clock(%lu)\n", clk_get_rate(ctx->lcd_clk));
-			 
+
 	lcd_rate = clk_get_rate(ctx->lcd_clk);
 	if (2 * lcd_rate < ideal_clk) {
 		DRM_INFO("sclk_fimd clock too low(%lu) for requested pixel clock(%lu)\n",
@@ -948,6 +967,8 @@ static irqreturn_t fimd_irq_handler(int irq, void *dev_id)
 	struct fimd_context *ctx = (struct fimd_context *)dev_id;
 	u32 val, clear_bit;
 
+	pr_err("slash %s\r\n", __func__);
+
 	val = readl(ctx->regs + VIDINTCON1);
 
 	clear_bit = ctx->i80_if ? VIDINTCON1_INT_I80 : VIDINTCON1_INT_FRAME;
@@ -955,18 +976,24 @@ static irqreturn_t fimd_irq_handler(int irq, void *dev_id)
 		writel(clear_bit, ctx->regs + VIDINTCON1);
 
 	/* check the crtc is detached already from encoder */
-	if (!ctx->drm_dev)
+	if (!ctx->drm_dev) {
+		pr_err("slash %s %d\r\n", __func__, __LINE__);
 		goto out;
+	}
 
-	if (!ctx->i80_if)
+	if (!ctx->i80_if) {
+		pr_err("slash %s %d\r\n", __func__, __LINE__);
 		drm_crtc_handle_vblank(&ctx->crtc->base);
+	}
 
 	if (ctx->i80_if) {
+		pr_err("slash %s %d\r\n", __func__, __LINE__);
 		/* Exits triggering mode */
 		atomic_set(&ctx->triggering, 0);
 	} else {
 		/* set wait vsync event to zero and wake up queue. */
 		if (atomic_read(&ctx->wait_vsync_event)) {
+			pr_err("slash %s %d\r\n", __func__, __LINE__);
 			atomic_set(&ctx->wait_vsync_event, 0);
 			wake_up(&ctx->wait_vsync_queue);
 		}
@@ -1042,6 +1069,15 @@ static int fimd_probe(struct platform_device *pdev)
 	struct device_node *i80_if_timings;
 	struct resource *res;
 	int ret;
+	void __iomem *clk_div_lcd_regs;
+	void __iomem *clk_src_lcd_regs;
+	struct resource clk_div_lcd_res;
+	unsigned int tmp;
+	struct clk *clk_div_fimd0;
+	struct clk *clk_mout_fimd0;
+	struct clk *clk_sclk_epll;
+	
+	const char clk_name[20];
 
 	if (!dev->of_node)
 		return -ENODEV;
@@ -1103,11 +1139,57 @@ static int fimd_probe(struct platform_device *pdev)
 		return PTR_ERR(ctx->bus_clk);
 	}
 
+	clk_set_rate(ctx->bus_clk, 160000000);
+	DRM_INFO("fimd clock(%lu)\n", clk_get_rate(ctx->bus_clk));
+
 	ctx->lcd_clk = devm_clk_get(dev, "sclk_fimd");
 	if (IS_ERR(ctx->lcd_clk)) {
 		dev_err(dev, "failed to get lcd clock\n");
 		return PTR_ERR(ctx->lcd_clk);
 	}
+
+	clk_set_rate(ctx->lcd_clk, 600000000);
+	clk_div_fimd0 = clk_get_parent(ctx->lcd_clk);
+	clk_mout_fimd0 = clk_get_parent(clk_div_fimd0);
+	clk_sclk_epll = devm_clk_get(dev, "sclk_epll");
+	if (IS_ERR(clk_sclk_epll))
+		pr_err("slash clk_sclk_epll is NULL\r\n");
+	else {
+		pr_err("slash clk_set_parent %s to clk_mout_fimd0\r\n", __clk_get_name(clk_sclk_epll));
+		clk_set_parent(clk_mout_fimd0, clk_sclk_epll);
+	}
+
+	//clk_name = (char *)lcd_clk_parent->core->name;
+	//strcpy(clk_name, (char *)lcd_clk_parent->core->name);
+	//pr_err("slash lcd_clk_parent %s\r\n", __clk_get_name(lcd_clk_parent));
+
+	DRM_INFO("sclk_fimd clock(%lu)\n", clk_get_rate(ctx->lcd_clk));
+
+	//clk_div_lcd_res.start = 0x10030000 + 0xC534;
+	//clk_div_lcd_res.end = 0x10030000 + 0xC534 + 4 - 1;
+	//clk_div_lcd_regs = devm_ioremap_resource(dev, &clk_div_lcd_res);
+	clk_div_lcd_regs = ioremap(0x10030000 + 0xC534, SZ_1K);
+
+
+	if (!clk_div_lcd_regs)
+		pr_err("slash %s clk_div_lcd_regs fail\r\n", __func__);
+	else
+		pr_err("slash %s clk_div_lcd_regs 0x%x\r\n", __func__, readl(clk_div_lcd_regs));
+
+#define SCLKEPLL 0x07
+
+	clk_src_lcd_regs = ioremap(0x10030000 + 0xC234, SZ_1K);
+	//tmp = readl(clk_src_lcd_regs);
+	//tmp = tmp & ~0xF;
+	//tmp = tmp | SCLKEPLL;	
+	//writel(tmp, clk_src_lcd_regs);
+
+	if (!clk_src_lcd_regs)
+		pr_err("slash %s clk_src_lcd_regs fail\r\n", __func__);
+	else
+		pr_err("slash %s clk_src_lcd_regs 0x%x\r\n", __func__, readl(clk_src_lcd_regs));
+
+	DRM_INFO("sclk_fimd clock(%lu)\n", clk_get_rate(ctx->lcd_clk));
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
