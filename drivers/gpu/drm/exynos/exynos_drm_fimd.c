@@ -22,12 +22,12 @@
 #include <linux/component.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
-
 #include <video/of_display_timing.h>
 #include <video/of_videomode.h>
 #include <video/samsung_fimd.h>
 #include <drm/exynos_drm.h>
-
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include "exynos_drm_drv.h"
 #include "exynos_drm_fb.h"
 #include "exynos_drm_crtc.h"
@@ -400,9 +400,7 @@ static int fimd_atomic_check(struct exynos_drm_crtc *crtc,
 		ideal_clk *= 2;
 	}
 
-	clk_set_rate(ctx->lcd_clk, 150000000);
 	DRM_INFO("sclk_fimd clock(%lu)\n", clk_get_rate(ctx->lcd_clk));
-			 
 	lcd_rate = clk_get_rate(ctx->lcd_clk);
 	if (2 * lcd_rate < ideal_clk) {
 		DRM_INFO("sclk_fimd clock too low(%lu) for requested pixel clock(%lu)\n",
@@ -1042,6 +1040,9 @@ static int fimd_probe(struct platform_device *pdev)
 	struct device_node *i80_if_timings;
 	struct resource *res;
 	int ret;
+	struct clk *clk_div_fimd0;
+	struct clk *clk_mout_fimd0;
+	struct clk *clk_sclk_epll;
 
 	if (!dev->of_node)
 		return -ENODEV;
@@ -1108,6 +1109,19 @@ static int fimd_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to get lcd clock\n");
 		return PTR_ERR(ctx->lcd_clk);
 	}
+	clk_set_rate(ctx->lcd_clk, 150000000);
+	clk_div_fimd0 = clk_get_parent(ctx->lcd_clk);
+	clk_mout_fimd0 = clk_get_parent(clk_div_fimd0);
+	clk_sclk_epll = devm_clk_get(dev, "sclk_epll");
+	if (IS_ERR(clk_sclk_epll))
+		pr_err("clk_sclk_epll get fail\r\n");
+	else {
+		ret = clk_set_parent(clk_mout_fimd0, clk_sclk_epll);
+		if (ret)
+			pr_err("clk_mout_fimd0 set clk parent fail\r\n");
+	}
+
+	DRM_INFO("sclk_fimd clock(%lu)\n", clk_get_rate(ctx->lcd_clk));
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 

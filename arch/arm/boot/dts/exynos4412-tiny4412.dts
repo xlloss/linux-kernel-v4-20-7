@@ -82,22 +82,6 @@
 		clock-names = "timers";
 	};
 
-//	display-timings {
-//		native-mode = <&timing0>;
-//		timing0: timing {
-//			clock-frequency = <63000000>;
-//			hactive = <800>;
-//			vactive = <480>;
-//			hfront-porch = <80>;
-//			hback-porch = <36>;
-//			hsync-len = <10>;
-//			vback-porch = <15>;
-//			vfront-porch = <22>;
-//			vsync-len = <8>;
-//		};
-//	};
-
-
 	gpio-keys {
 		compatible = "gpio-keys-polled";
 		poll-interval = <100>;
@@ -139,15 +123,15 @@
 	display-timings {
 		native-mode = <&timing0>;
 		timing0: timing {
-			clock-frequency = <4000000>;
+			clock-frequency = <33000000>;
 			hactive = <800>;
 			vactive = <480>;
-			hfront-porch = <80>;
-			hback-porch = <36>;
-			hsync-len = <10>;
-			vback-porch = <15>;
-			vfront-porch = <22>;
-			vsync-len = <18>;
+			hfront-porch = <90>;
+			hback-porch = <10>;
+			hsync-len = <28>;
+			vback-porch = <29>;
+			vfront-porch = <13>;
+			vsync-len = <3>;
 			vsync-active = <0>;
 			hsync-active = <0>;
 			pixelclk-active = <0>;

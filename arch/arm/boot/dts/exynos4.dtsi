@@ -722,8 +722,8 @@
 			reg = <0x11c00000 0x20000>;
 			interrupt-names = "fifo", "vsync", "lcd_sys";
 			interrupts = <11 0>, <11 1>, <11 2>;
-			clocks = <&clock CLK_SCLK_FIMD0>, <&clock CLK_FIMD0>;
-			clock-names = "sclk_fimd", "fimd";
+			clocks = <&clock CLK_SCLK_FIMD0>, <&clock CLK_FIMD0>, <&clock CLK_SCLK_EPLL>;
+			clock-names = "sclk_fimd", "fimd", "sclk_epll";
 			power-domains = <&pd_lcd0>;
 			iommus = <&sysmmu_fimd0>;
 			samsung,sysreg = <&sys_reg>;
