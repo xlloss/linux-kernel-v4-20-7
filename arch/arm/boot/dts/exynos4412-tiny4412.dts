@@ -224,6 +224,13 @@
 			compatible = "sensirion,sht21";
 			reg = <0x40>;
         };
+
+		at24c08@50 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "atmel,24c08";
+			reg = <0x50>;
+		};
 };
 
 &pinctrl_1 {
