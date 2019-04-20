@@ -24,7 +24,7 @@
 #include <linux/delay.h>
 
 /*
-    PWM 时钟频率 100M
+    PWM CLK 100M
     100M / 250 / 4 = 100000
     1/100000 = 10us
 */
@@ -64,8 +64,6 @@ static struct timer_list one_wire_timer;
 #define REQ_INFO 0x60U
 
 static int timer_interval = HZ / 50;
-static unsigned lcd_type, firmware_ver;
-static int has_ts_data = 1;
 static int exitting;
 
 void __iomem *timer_base;
@@ -427,9 +425,7 @@ void one_wire_timer_proc(struct timer_list *unused)
 
 	add_timer(&one_wire_timer);
 
-	if (lcd_type == 0) {
-		req = REQ_INFO;
-	} else if (!backlight_init_success) {
+	if (!backlight_init_success) {
 		req = 127;
 	} else if (backlight_req) {
 		req = backlight_req;
