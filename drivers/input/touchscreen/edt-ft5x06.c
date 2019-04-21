@@ -997,7 +997,7 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client,
 		error = PTR_ERR(tsdata->reset_gpio);
 		dev_err(&client->dev,
 			"Failed to request GPIO reset pin, error %d\n", error);
-		return error;
+		/* return error; */
 	}
 
 	tsdata->wake_gpio = devm_gpiod_get_optional(&client->dev,
@@ -1006,7 +1006,7 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client,
 		error = PTR_ERR(tsdata->wake_gpio);
 		dev_err(&client->dev,
 			"Failed to request GPIO wake pin, error %d\n", error);
-		return error;
+		/* return error; */
 	}
 
 	if (tsdata->wake_gpio) {
