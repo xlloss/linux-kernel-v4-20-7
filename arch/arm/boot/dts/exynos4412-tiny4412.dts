@@ -233,6 +233,22 @@
 		};
 };
 
+&i2c_1 {
+		status = "okay";
+
+		edt-ft5306@38 {
+			compatible = "edt,edt-ft5306", "edt,edt-ft5x06";
+			pinctrl-names = "default";
+			reg = <0x38>;
+			interrupt-parent = <&gpx1>;
+			/* interrupt source is gpx1-6 */
+			/* <interrupt_src interrupt_type> */
+			interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+			touchscreen-size-x = <800>;
+			touchscreen-size-y = <480>;
+		};
+};
+
 &pinctrl_1 {
 	backlight_out:
 	backlight_out {
