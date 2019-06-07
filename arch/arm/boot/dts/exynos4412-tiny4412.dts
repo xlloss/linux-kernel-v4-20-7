@@ -29,7 +29,7 @@
 
 	leds {
 		compatible = "gpio-leds";
-
+		status = "disabled";
 		led1 {
 			label = "led1";
 			gpios = <&gpm4 0 GPIO_ACTIVE_LOW>;
@@ -76,7 +76,6 @@
 		pinctrl-names = "backlight_out","backlight_in";
 		pinctrl-0 = <&backlight_out>;
 		pinctrl-1 = <&backlight_in>;
-//		interrupts = <0 40 0>;
 		interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clock CLK_PWM>;
 		clock-names = "timers";
@@ -85,7 +84,7 @@
 	gpio-keys {
 		compatible = "gpio-keys-polled";
 		poll-interval = <100>;
-
+		status = "disabled";
 		user_k1 {
 			label = "User Push Button K1";
 			linux,code = <BTN_0>;
@@ -109,6 +108,23 @@
 			linux,code = <BTN_2>;
 			gpios = <&gpx3 5 GPIO_ACTIVE_LOW>;
 		};
+	};
+
+	led-sample {
+		status = "okay";
+		compatible = "tiny4412,led-sample";
+		led0-gpios = <&gpm4 0 GPIO_ACTIVE_HIGH>;
+		led1-gpios = <&gpm4 1 GPIO_ACTIVE_HIGH>;
+		led2-gpios = <&gpm4 2 GPIO_ACTIVE_HIGH>;
+		led3-gpios = <&gpm4 3 GPIO_ACTIVE_HIGH>;
+	};
+
+	irq-gpio-sample {
+		compatible = "tiny4412,irq-sample";
+		irq0-gpios = <&gpx3 2 GPIO_ACTIVE_HIGH>;
+		irq1-gpios = <&gpx3 3 GPIO_ACTIVE_HIGH>;
+		irq2-gpios = <&gpx3 4 GPIO_ACTIVE_HIGH>;
+		irq3-gpios = <&gpx3 5 GPIO_ACTIVE_HIGH>;
 	};
 };
 
