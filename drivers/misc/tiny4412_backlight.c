@@ -490,7 +490,7 @@ static int backlight_probe(struct platform_device *pdev)
 	pclk = clk_get_rate(base_clk);
 	dev_info(dev, "PWM clock = %ld\n", pclk);
 
-	timer_base = devm_ioremap_resource(&pdev->dev, res);
+	timer_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
     if (timer_base == NULL) {
         dev_err(dev, "devm_ioremap_resource error\n");
         return -EINVAL;
