@@ -120,11 +120,25 @@
 	};
 
 	irq-gpio-sample {
+		status = "disabled";
 		compatible = "tiny4412,irq-sample";
 		irq0-gpios = <&gpx3 2 GPIO_ACTIVE_HIGH>;
 		irq1-gpios = <&gpx3 3 GPIO_ACTIVE_HIGH>;
 		irq2-gpios = <&gpx3 4 GPIO_ACTIVE_HIGH>;
 		irq3-gpios = <&gpx3 5 GPIO_ACTIVE_HIGH>;
+	};
+
+	mg996r {
+		compatible = "tiny4412,mg996r-sample";
+		pwms = <&pwm 0 20000000 100>;
+		/* PWM 0 -- For MG996R */
+		status = "okay";
+	};
+
+	tiny4412-simple-key {
+		compatible = "tiny4412,simple-key";
+		status = "okay";
+		key0-gpios = <&gpx3 2 GPIO_ACTIVE_HIGH>;
 	};
 };
 
