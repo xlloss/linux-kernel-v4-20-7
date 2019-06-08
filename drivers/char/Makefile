@@ -58,3 +58,7 @@ js-rtc-y = rtc.o
 obj-$(CONFIG_XILLYBUS)		+= xillybus/
 obj-$(CONFIG_POWERNV_OP_PANEL)	+= powernv-op-panel.o
 obj-$(CONFIG_ADI)		+= adi.o
+obj-m		+= tiny4412_leds.o
+obj-m		+= tiny4412_irq.o
+#obj-y		+= tiny4412_mg996r.o
+obj-m		+= tiny4412_mg996r.o
