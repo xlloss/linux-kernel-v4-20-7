@@ -7,6 +7,12 @@ menu "Character devices"
 
 source "drivers/tty/Kconfig"
 
+config SAMPLE_HELLO_MODULE
+    tristate "Hello World Sample Module"
+    default n
+    help
+    This is a sample linux module "Hello World"
+
 config DEVMEM
 	bool "/dev/mem virtual device support"
 	default y
