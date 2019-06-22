@@ -118,7 +118,7 @@ static int tiny4412_led_remove(struct platform_device *op)
 		gpiod_set_value(led_gpio.gpiod[i], 0);
 
 	misc_deregister(&tiny4412_led_dev);
-	
+
 	return 0;
 }
 
