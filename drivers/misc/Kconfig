@@ -4,6 +4,11 @@
 
 menu "Misc devices"
 
+config TINY4412_BACKLIGHT
+    tristate "Tiny4412 Backlight"
+    help
+        enable tiny4412 backlight
+
 config SENSORS_LIS3LV02D
 	tristate
 	depends on INPUT
