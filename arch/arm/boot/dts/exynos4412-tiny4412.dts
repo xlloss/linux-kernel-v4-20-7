@@ -140,6 +140,13 @@
 		status = "okay";
 		key0-gpios = <&gpx3 2 GPIO_ACTIVE_HIGH>;
 	};
+
+	tiny4412-simple-key {
+		compatible = "tiny4412,simple-key";
+		status = "okay";
+		key0-gpios = <&gpx3 2 GPIO_ACTIVE_HIGH>;
+	};
+
 };
 
 &fimd {
