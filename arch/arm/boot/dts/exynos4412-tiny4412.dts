@@ -69,6 +69,12 @@
 		};
 	};
 
+	rtc_clk_src: rtc_clk_src {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <32768>;
+	};
+
 	backlight_demo@139D0000	{
 		compatible = "tiny4412,backlight_demo";
 		reg = <0x139D0000  0x14>;
@@ -310,4 +316,10 @@
 	pinctrl-names = "default";
 	samsung,pwm-outputs = <0>;
 	status = "okay";
+};
+
+&rtc {
+    status = "okay";
+    clocks = <&clock CLK_RTC>, <&rtc_clk_src>;
+    clock-names = "rtc", "rtc_src";
 };
