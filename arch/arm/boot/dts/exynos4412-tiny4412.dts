@@ -292,6 +292,14 @@
 		};
 };
 
+&i2c_7 {
+	status = "okay";
+};
+
+&i2c_8 {
+	status = "okay";
+};
+
 &pinctrl_1 {
 	backlight_out:
 	backlight_out {
@@ -308,6 +316,11 @@
 		samsung,pin-pud = <0>;
 		samsung,pin-drv = <0>;
 	};
+
+	hdmi_hpd: hdmi-hpd {
+		samsung,pins = "gpx3-7";
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+	};
 };
 
 &pwm {
@@ -319,7 +332,23 @@
 };
 
 &rtc {
-    status = "okay";
-    clocks = <&clock CLK_RTC>, <&rtc_clk_src>;
-    clock-names = "rtc", "rtc_src";
+	status = "okay";
+	clocks = <&clock CLK_RTC>, <&rtc_clk_src>;
+	clock-names = "rtc", "rtc_src";
+};
+
+&mixer {
+	status = "okay";
+};
+
+&hdmi {
+	hpd-gpios = <&gpx3 7 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&hdmi_hpd>;
+	ddc = <&i2c_7>;
+	status = "okay";
+};
+
+&hdmicec {
+	status = "okay";
 };
