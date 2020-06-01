@@ -128,6 +128,7 @@ static int bsr_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct bsr_dev *dev = filp->private_data;
 	int ret;
 
+	pr_info("%s %d\r", __func__, __LINE__);
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
 	/* check for the case of a small BSR device and map one 4k page for it*/
