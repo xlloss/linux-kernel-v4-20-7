@@ -303,6 +303,7 @@ static int __init bsr_init(void)
 	dev_t bsr_dev;
 	int ret = -ENODEV;
 
+	pr_info("%s %d\r", __func__, __LINE__);
 	np = of_find_compatible_node(NULL, NULL, "ibm,bsr");
 	if (!np)
 		goto out_err;
