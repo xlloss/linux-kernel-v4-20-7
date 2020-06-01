@@ -345,7 +345,7 @@ static int __init bsr_init(void)
 
 static void __exit  bsr_exit(void)
 {
-
+	pr_info("%s %d\r", __func__, __LINE__);
 	bsr_cleanup_devs();
 
 	if (bsr_class)
