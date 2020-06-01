@@ -185,6 +185,7 @@ static int bsr_add_node(struct device_node *bn)
 	unsigned i;
 	int ret = -ENODEV;
 
+	pr_info("%s %d\r", __func__, __LINE__);
 	bsr_stride = of_get_property(bn, "ibm,lock-stride", &bsr_stride_len);
 	bsr_bytes  = of_get_property(bn, "ibm,#lock-bytes", &bsr_bytes_len);
 
